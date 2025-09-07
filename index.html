@@ -1,0 +1,434 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Dama Game</title>
+  <style>
+    body {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      background: #f5deb3;
+      font-family: Arial, sans-serif;
+      flex-direction: column;
+    }
+    #menu {
+      text-align: center;
+      margin-bottom: 20px;
+    }
+    #board {
+      display: grid;
+      grid-template-columns: repeat(8, 60px);
+      grid-template-rows: repeat(8, 60px);
+      border: 4px solid #333;
+      display: none;
+    }
+    .cell {
+      width: 60px;
+      height: 60px;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+    }
+    /* Board themes */
+    .classicDark { background: #b58863; }
+    .classicLight { background: #f0d9b5; }
+    .bwDark { background: #444; }
+    .bwLight { background: #eee; }
+
+    .piece {
+      width: 45px;
+      height: 45px;
+      border-radius: 50%;
+    }
+    .white { background: white; border: 2px solid #ccc; }
+    .black { background: black; }
+    .king { border: 3px solid gold; box-shadow: 0 0 10px gold; }
+    .selected { outline: 3px solid red; }
+    #status { margin-top: 15px; font-weight: bold; text-align: center; }
+    #scoreboard {
+      margin-top: 8px;
+      font-size: 18px;
+      font-weight: bold;
+      text-align: center;
+    }
+    #roundDisplay {
+      margin-top: 5px;
+      font-size: 16px;
+      font-style: italic;
+      text-align: center;
+    }
+    .game-btn {
+      display: none;
+      margin-top: 10px;
+      padding: 8px 15px;
+      background: #333;
+      color: white;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+    }
+    .game-btn:hover {
+      background: #555;
+    }
+  </style>
+</head>
+<body>
+  <div id="menu">
+    <h2>Dama Game</h2>
+    <label>Game Mode:</label>
+    <select id="modeSelect" onchange="toggleModeOptions()">
+      <option value="1v1">1 vs 1</option>
+      <option value="ai">1 vs AI</option>
+    </select>
+    <br><br>
+
+    <div id="p1Div">
+      <label>Player 1 Name: </label><input id="p1Name" placeholder="White player"><br><br>
+    </div>
+    <div id="p2Div">
+      <label>Player 2 Name: </label><input id="p2Name" placeholder="Black player"><br><br>
+    </div>
+    <div id="aiDiv" style="display:none;">
+      <label>Your Name: </label><input id="aiPlayerName" placeholder="White player"><br><br>
+      <label>AI Difficulty:</label>
+      <select id="difficulty">
+        <option value="easy">Easy</option>
+        <option value="hard">Hard</option>
+      </select><br><br>
+    </div>
+
+    <label>Board Theme:</label>
+    <select id="theme">
+      <option value="classic">Classic Brown</option>
+      <option value="bw">Black & White</option>
+    </select><br><br>
+
+    <label>Who moves first?</label>
+    <select id="firstMove">
+      <option value="white">White</option>
+      <option value="black">Black</option>
+    </select><br><br>
+
+    <label>Match Type:</label>
+    <select id="matchType">
+      <option value="free">Free Play</option>
+      <option value="3">Best of 3</option>
+      <option value="5">Best of 5</option>
+    </select><br><br>
+
+    <button onclick="startGame()">Start Game</button>
+  </div>
+
+  <div id="board"></div>
+  <div id="status"></div>
+  <div id="scoreboard"></div>
+  <div id="roundDisplay"></div>
+  <button id="playAgainBtn" class="game-btn" onclick="playAgain()">Play Again</button>
+  <button id="restartBtn" class="game-btn" onclick="restartGame()">Restart Game</button>
+
+  <script>
+    const board = document.getElementById("board");
+    const restartBtn = document.getElementById("restartBtn");
+    const playAgainBtn = document.getElementById("playAgainBtn");
+    const scoreboard = document.getElementById("scoreboard");
+    const roundDisplay = document.getElementById("roundDisplay");
+    let selectedPiece = null;
+    let currentPlayer = "white";
+    let mode = "1v1";
+    let aiDifficulty = "easy";
+    let p1Name = "White";
+    let p2Name = "Black";
+    let theme = "classic";
+    let matchType = "free";
+    let matchTarget = 0;
+    let gameOver = false;
+    let scores = { white: 0, black: 0 };
+    let roundNumber = 1;
+
+    function toggleModeOptions() {
+      const modeSelect = document.getElementById("modeSelect").value;
+      if (modeSelect === "1v1") {
+        document.getElementById("p1Div").style.display = "block";
+        document.getElementById("p2Div").style.display = "block";
+        document.getElementById("aiDiv").style.display = "none";
+      } else {
+        document.getElementById("p1Div").style.display = "none";
+        document.getElementById("p2Div").style.display = "none";
+        document.getElementById("aiDiv").style.display = "block";
+      }
+    }
+
+    function startGame() {
+      mode = document.getElementById("modeSelect").value;
+      theme = document.getElementById("theme").value;
+      currentPlayer = document.getElementById("firstMove").value;
+      matchType = document.getElementById("matchType").value;
+      roundNumber = 1;
+
+      matchTarget = matchType === "3" ? 2 : matchType === "5" ? 3 : 0;
+
+      if (mode === "1v1") {
+        p1Name = document.getElementById("p1Name").value || "White";
+        p2Name = document.getElementById("p2Name").value || "Black";
+      } else {
+        p1Name = document.getElementById("aiPlayerName").value || "You";
+        p2Name = "Computer";
+        aiDifficulty = document.getElementById("difficulty").value;
+      }
+
+      scores = { white: 0, black: 0 };
+      gameOver = false;
+      document.getElementById("menu").style.display = "none";
+      restartBtn.style.display = "none";
+      playAgainBtn.style.display = "none";
+      board.style.display = "grid";
+      board.innerHTML = "";
+      initBoard();
+      updateStatus();
+      updateScoreboard();
+      updateRound();
+    }
+
+    function initBoard() {
+      for (let row = 0; row < 8; row++) {
+        for (let col = 0; col < 8; col++) {
+          const cell = document.createElement("div");
+          cell.classList.add("cell");
+          cell.dataset.row = row;
+          cell.dataset.col = col;
+
+          if ((row + col) % 2 === 1) {
+            cell.classList.add(theme === "classic" ? "classicDark" : "bwDark");
+
+            if (row < 3) {
+              const piece = document.createElement("div");
+              piece.classList.add("piece", "black");
+              cell.appendChild(piece);
+            } else if (row > 4) {
+              const piece = document.createElement("div");
+              piece.classList.add("piece", "white");
+              cell.appendChild(piece);
+            }
+          } else {
+            cell.classList.add(theme === "classic" ? "classicLight" : "bwLight");
+          }
+          board.appendChild(cell);
+        }
+      }
+    }
+
+    // Handle clicks
+    board.addEventListener("click", (e) => {
+      if (gameOver) return;
+      if (mode === "ai" && currentPlayer === "black") return;
+
+      const cell = e.target.classList.contains("cell") ? e.target : e.target.parentElement;
+
+      if (cell.querySelector(".piece")) {
+        const piece = cell.querySelector(".piece");
+        if (piece.classList.contains(currentPlayer)) {
+          if (selectedPiece) selectedPiece.classList.remove("selected");
+          selectedPiece = piece;
+          piece.classList.add("selected");
+        }
+      } else if (selectedPiece) {
+        movePiece(cell);
+      }
+    });
+
+    function movePiece(targetCell) {
+      const startCell = selectedPiece.parentElement;
+      const startRow = parseInt(startCell.dataset.row);
+      const startCol = parseInt(startCell.dataset.col);
+      const endRow = parseInt(targetCell.dataset.row);
+      const endCol = parseInt(targetCell.dataset.col);
+      const dir = currentPlayer === "white" ? -1 : 1;
+
+      if (Math.abs(startRow - endRow) === 1 && Math.abs(startCol - endCol) === 1 && !targetCell.querySelector(".piece")) {
+        if (selectedPiece.classList.contains("king") || (endRow - startRow === dir)) {
+          targetCell.appendChild(selectedPiece);
+          endTurn(endRow);
+        }
+      }
+      else if (Math.abs(startRow - endRow) === 2 && Math.abs(startCol - endCol) === 2) {
+        const midRow = (startRow + endRow) / 2;
+        const midCol = (startCol + endCol) / 2;
+        const middleCell = document.querySelector(`.cell[data-row='${midRow}'][data-col='${midCol}']`);
+        const capturedPiece = middleCell.querySelector(".piece");
+
+        if (capturedPiece && !targetCell.querySelector(".piece") && !capturedPiece.classList.contains(currentPlayer)) {
+          targetCell.appendChild(selectedPiece);
+          middleCell.removeChild(capturedPiece);
+          endTurn(endRow);
+        }
+      }
+    }
+
+    function endTurn(endRow) {
+      selectedPiece.classList.remove("selected");
+
+      if ((currentPlayer === "white" && endRow === 0) || (currentPlayer === "black" && endRow === 7)) {
+        selectedPiece.classList.add("king");
+      }
+
+      selectedPiece = null;
+      currentPlayer = currentPlayer === "white" ? "black" : "white";
+      updateStatus();
+      checkGameOver();
+
+      if (!gameOver && mode === "ai" && currentPlayer === "black") {
+        setTimeout(aiMove, 600);
+      }
+    }
+
+    function updateStatus() {
+      if (!gameOver) {
+        document.getElementById("status").innerText = 
+          `${currentPlayer === "white" ? p1Name : p2Name}'s turn (${currentPlayer})`;
+      }
+    }
+
+    function updateScoreboard() {
+      scoreboard.innerText = `${p1Name} (White): ${scores.white}  |  ${p2Name} (Black): ${scores.black}`;
+    }
+
+    function updateRound() {
+      roundDisplay.innerText = `Round ${roundNumber}`;
+    }
+
+    function checkGameOver() {
+      let whitePieces = document.querySelectorAll(".white").length;
+      let blackPieces = document.querySelectorAll(".black").length;
+
+      if (whitePieces === 0) return declareWinner(p2Name, "black");
+      if (blackPieces === 0) return declareWinner(p1Name, "white");
+
+      if (!hasMoves("white")) return declareWinner(p2Name, "black");
+      if (!hasMoves("black")) return declareWinner(p1Name, "white");
+    }
+
+    function hasMoves(player) {
+      let movesAvailable = false;
+
+      document.querySelectorAll(`.${player}`).forEach(piece => {
+        const row = parseInt(piece.parentElement.dataset.row);
+        const col = parseInt(piece.parentElement.dataset.col);
+
+        const directions = piece.classList.contains("king")
+          ? [[1,1],[1,-1],[-1,1],[-1,-1]]
+          : (player === "white" ? [[-1,1],[-1,-1]] : [[1,1],[1,-1]]);
+
+        for (let [dr,dc] of directions) {
+          let newRow = row + dr;
+          let newCol = col + dc;
+          let cell = document.querySelector(`.cell[data-row='${newRow}'][data-col='${newCol}']`);
+          if (cell && !cell.querySelector(".piece")) movesAvailable = true;
+
+          let jumpRow = row + dr*2;
+          let jumpCol = col + dc*2;
+          let middle = document.querySelector(`.cell[data-row='${row+dr}'][data-col='${col+dc}']`);
+          let jumpCell = document.querySelector(`.cell[data-row='${jumpRow}'][data-col='${jumpCol}']`);
+          if (middle && jumpCell) {
+            let enemy = middle.querySelector(".piece");
+            if (enemy && !enemy.classList.contains(player) && !jumpCell.querySelector(".piece")) {
+              movesAvailable = true;
+            }
+          }
+        }
+      });
+
+      return movesAvailable;
+    }
+
+    function declareWinner(winnerName, winnerColor) {
+      gameOver = true;
+      scores[winnerColor] += 1;
+      updateScoreboard();
+
+      if (matchTarget > 0 && scores[winnerColor] >= matchTarget) {
+        document.getElementById("status").innerText = `🏆 ${winnerName} is the Overall Champion! 🏆`;
+        restartBtn.style.display = "inline-block";
+      } else {
+        document.getElementById("status").innerText = `🎉 ${winnerName} wins this round! 🎉`;
+        restartBtn.style.display = "inline-block";
+        playAgainBtn.style.display = "inline-block";
+      }
+    }
+
+    function restartGame() {
+      board.style.display = "none";
+      restartBtn.style.display = "none";
+      playAgainBtn.style.display = "none";
+      document.getElementById("status").innerText = "";
+      scoreboard.innerText = "";
+      roundDisplay.innerText = "";
+      document.getElementById("menu").style.display = "block";
+    }
+
+    function playAgain() {
+      board.innerHTML = "";
+      restartBtn.style.display = "none";
+      playAgainBtn.style.display = "none";
+      gameOver = false;
+      roundNumber++;
+      board.style.display = "grid";
+      initBoard();
+      updateStatus();
+      updateRound();
+    }
+
+    // AI move logic
+    function aiMove() {
+      if (gameOver) return;
+      let moves = [];
+
+      document.querySelectorAll(".black").forEach(piece => {
+        const row = parseInt(piece.parentElement.dataset.row);
+        const col = parseInt(piece.parentElement.dataset.col);
+
+        const directions = piece.classList.contains("king")
+          ? [[1,1],[1,-1],[-1,1],[-1,-1]]
+          : [[1,1],[1,-1]];
+
+        for (let [dr,dc] of directions) {
+          let newRow = row + dr;
+          let newCol = col + dc;
+          let cell = document.querySelector(`.cell[data-row='${newRow}'][data-col='${newCol}']`);
+          if (cell && !cell.querySelector(".piece")) {
+            moves.push({piece, cell});
+          }
+
+          let jumpRow = row + dr*2;
+          let jumpCol = col + dc*2;
+          let middle = document.querySelector(`.cell[data-row='${row+dr}'][data-col='${col+dc}']`);
+          let jumpCell = document.querySelector(`.cell[data-row='${jumpRow}'][data-col='${jumpCol}']`);
+          if (middle && jumpCell) {
+            let enemy = middle.querySelector(".piece");
+            if (enemy && enemy.classList.contains("white") && !jumpCell.querySelector(".piece")) {
+              moves.push({piece, cell: jumpCell, capture: enemy});
+            }
+          }
+        }
+      });
+
+      if (moves.length === 0) return declareWinner(p1Name, "white");
+
+      let move;
+      if (aiDifficulty === "hard") {
+        move = moves.find(m => m.capture) || moves[Math.floor(Math.random()*moves.length)];
+      } else {
+        move = moves[Math.floor(Math.random()*moves.length)];
+      }
+
+      selectedPiece = move.piece;
+      if (move.capture) move.capture.remove();
+      move.cell.appendChild(move.piece);
+
+      const endRow = parseInt(move.cell.dataset.row);
+      endTurn(endRow);
+    }
+  </script>
+</body>
+</html>
